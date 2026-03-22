@@ -1,0 +1,595 @@
+# Capability Evolver
+
+> Meta-skill for AI agent self-improvement. Analyzes runtime logs to detect error patterns, regressions, and inefficiencies, then generates structured improvement proposals. Use when the user or agent asks to analyze logs, diagnose failures, improve agent reliability, generate evolution proposals, or assess system health. Supports analyze, evolve, and status actions.
+
+[![License: MIT-0](https://img.shields.io/badge/License-MIT--0-blue.svg)](LICENSE)
+[![Claw0x](https://img.shields.io/badge/Powered%20by-Claw0x-orange)](https://claw0x.com)
+[![OpenClaw Compatible](https://img.shields.io/badge/OpenClaw-Compatible-green)](https://openclaw.org)
+
+## What is This?
+
+This is a native skill for **OpenClaw** and other AI agents. Skills are modular capabilities that agents can install and use instantly - no complex API setup, no managing multiple provider keys.
+
+Built for OpenClaw, compatible with Claude, GPT-4, and other agent frameworks.
+
+## Installation
+
+### For OpenClaw Users
+
+Simply tell your agent:
+
+```
+Install the "Capability Evolver" skill from Claw0x
+```
+
+Or use this connection prompt:
+
+```
+Add skill: capability-evolver
+Platform: Claw0x
+Get your API key at: https://claw0x.com
+```
+
+### For Other Agents (Claude, GPT-4, etc.)
+
+1. Get your free API key at [claw0x.com](https://claw0x.com) (no credit card required)
+2. Add to your agent's configuration:
+   - Skill name: `capability-evolver`
+   - Endpoint: `https://claw0x.com/v1/call`
+   - Auth: Bearer token with your Claw0x API key
+
+### Via CLI
+
+```bash
+npx @claw0x/cli add capability-evolver
+```
+
+---
+
+
+# Capability Evolver
+
+Analyze agent runtime logs, detect patterns, compute health scores, and generate structured improvement proposals. Pure logic — no external AI dependency.
+
+> **Pay-per-call pricing.** $0.03 per successful analysis. Failed calls are free.
+
+## Quick Reference
+
+| When This Happens | Use Action | What You Get |
+|-------------------|------------|--------------|
+| Agent keeps failing | `analyze` | Error patterns + health score |
+| Same error repeats | `analyze` | Root cause identification |
+| Need improvement plan | `evolve` | Prioritized recommendations |
+| System health check | `status` | Health score + summary |
+| Post-deployment review | `analyze` | Regression detection |
+| Fleet-wide diagnostics | `analyze` (batch) | Cross-agent patterns |
+
+**Why deterministic?** Reproducible results, no hallucination risk, sub-100ms processing, zero token costs.
+
+---
+
+## 5-Minute Quickstart
+
+### Step 1: Get API Key (30 seconds)
+Sign up at [claw0x.com](https://claw0x.com) → Dashboard → Create API Key
+
+### Step 2: Analyze Your First Logs (1 minute)
+```bash
+curl -X POST https://api.claw0x.com/v1/call \
+  -H "Authorization: Bearer ck_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "skill": "capability-evolver",
+    "input": {
+      "action": "analyze",
+      "logs": [
+        {"timestamp": "2025-01-15T10:00:00Z", "level": "error", "message": "ETIMEDOUT", "context": "payment-api.ts"},
+        {"timestamp": "2025-01-15T10:01:00Z", "level": "error", "message": "ETIMEDOUT", "context": "payment-api.ts"},
+        {"timestamp": "2025-01-15T10:02:00Z", "level": "error", "message": "ETIMEDOUT", "context": "payment-api.ts"}
+      ]
+    }
+  }'
+```
+
+### Step 3: Get Actionable Insights (instant)
+```json
+{
+  "patterns": [
+    {
+      "type": "repeated_error",
+      "severity": "high",
+      "description": "ETIMEDOUT appeared 3 times in payment-api.ts",
+      "affected_contexts": ["payment-api.ts"]
+    }
+  ],
+  "health_score": 45,
+  "recommendations": [
+    "Add timeout configuration to payment-api.ts",
+    "Implement retry logic with exponential backoff",
+    "Monitor payment API response times"
+  ]
+}
+```
+
+### Step 4: Generate Evolution Plan (2 minutes)
+```bash
+curl -X POST https://api.claw0x.com/v1/call \
+  -H "Authorization: Bearer ck_live_..." \
+  -d '{
+    "skill": "capability-evolver",
+    "input": {
+      "action": "evolve",
+      "logs": [...],
+      "strategy": "harden"
+    }
+  }'
+```
+
+**Done.** You now have a prioritized improvement roadmap.
+
+---
+
+## Real-World Use Cases
+
+### Scenario 1: Production Incident Response
+**Problem**: Your agent crashed in production and you need to understand why
+
+**Solution**:
+1. Export last 1000 log entries
+2. Run analyze action
+3. Get error patterns and cascades
+4. Identify root cause in minutes
+
+**Example**:
+```typescript
+const logs = await db.logs.findMany({ 
+  where: { timestamp: { gte: incidentStart } },
+  orderBy: { timestamp: 'asc' }
+});
+
+const analysis = await claw0x.call('capability-evolver', {
+  action: 'analyze',
+  logs: logs.map(l => ({
+    timestamp: l.timestamp,
+    level: l.level,
+    message: l.message,
+    context: l.context
+  }))
+});
+
+// analysis.patterns shows: "auth-service.ts failed, then payment-api.ts failed"
+// Root cause: auth service timeout cascaded to payment failures
+```
+
+### Scenario 2: Continuous Improvement Pipeline
+**Problem**: You want your agent to automatically improve based on production data
+
+**Solution**:
+1. Schedule daily log analysis
+2. Generate evolution proposals
+3. Auto-create GitHub issues for high-priority items
+4. Track improvement over time
+
+**Example**:
+```javascript
+// Cron job: every day at 2am
+async function dailyEvolution() {
+  const logs = await getLast24HoursLogs();
+  
+  const evolution = await claw0x.call('capability-evolver', {
+    action: 'evolve',
+    logs,
+    strategy: 'balanced'
+  });
+  
+  // Create issues for critical recommendations
+  for (const rec of evolution.recommendations.filter(r => r.priority === 'critical')) {
+    await github.issues.create({
+      title: `[Auto] ${rec.category}: ${rec.description}`,
+      body: `Risk: ${rec.risk}\nApproach: ${rec.approach}`,
+      labels: ['auto-generated', 'reliability']
+    });
+  }
+  
+  // Track health score trend
+  await metrics.record('agent_health_score', evolution.estimated_improvement);
+}
+// Result: Health score improved from 45 to 85 over 3 months
+```
+
+### Scenario 3: Multi-Agent Fleet Management
+**Problem**: Managing 50+ agent instances, need to identify systemic issues
+
+**Solution**:
+1. Aggregate logs from all agents
+2. Batch analyze to find common patterns
+3. Fix once, deploy to all agents
+4. Reduce fleet-wide error rate
+
+**Example**:
+```python
+# Collect logs from all agents
+all_logs = []
+for agent_id in agent_fleet:
+    logs = fetch_agent_logs(agent_id, last_24h)
+    all_logs.extend(logs)
+
+# Analyze fleet-wide
+result = client.call("capability-evolver", {
+    "action": "analyze",
+    "logs": all_logs
+})
+
+# result.patterns shows: "40 of 50 agents failing on auth-service.ts"
+# Fix auth-service.ts once, deploy to all agents
+# Result: 80% reduction in fleet-wide errors
+```
+
+### Scenario 4: Pre-Deployment Health Check
+**Problem**: Want to ensure new deployment doesn't introduce regressions
+
+**Solution**:
+1. Analyze logs from staging environment
+2. Compare health score to production baseline
+3. Block deployment if health score drops
+4. Catch regressions before production
+
+**Example**:
+```yaml
+# .github/workflows/deploy.yml
+- name: Health Check
+  run: |
+    STAGING_LOGS=$(fetch-logs staging)
+    
+    RESULT=$(curl -X POST https://api.claw0x.com/v1/call \
+      -H "Authorization: Bearer $CLAW0X_API_KEY" \
+      -d "{\"skill\":\"capability-evolver\",\"input\":{\"action\":\"analyze\",\"logs\":$STAGING_LOGS}}")
+    
+    HEALTH_SCORE=$(echo $RESULT | jq -r '.health_score')
+    BASELINE=75
+    
+    if [ $HEALTH_SCORE -lt $BASELINE ]; then
+      echo "Health score $HEALTH_SCORE below baseline $BASELINE"
+      exit 1
+    fi
+# Result: Zero regression-related incidents in 6 months
+```
+
+---
+
+## Integration Recipes
+
+### OpenClaw Agent
+```typescript
+import { Claw0xClient } from '@claw0x/sdk';
+
+const claw0x = new Claw0xClient(process.env.CLAW0X_API_KEY);
+
+// Analyze logs after each run
+agent.onComplete(async () => {
+  const logs = agent.getRecentLogs();
+  
+  const analysis = await claw0x.call('capability-evolver', {
+    action: 'analyze',
+    logs
+  });
+  
+  if (analysis.health_score < 70) {
+    console.warn('⚠️ Health score low:', analysis.health_score);
+    console.log('Recommendations:', analysis.recommendations);
+  }
+});
+```
+
+### LangChain Agent
+```python
+from claw0x import Claw0xClient
+import os
+
+client = Claw0xClient(api_key=os.getenv("CLAW0X_API_KEY"))
+
+def analyze_agent_health(logs):
+    result = client.call("capability-evolver", {
+        "action": "analyze",
+        "logs": logs
+    })
+    
+    return {
+        "health_score": result["health_score"],
+        "patterns": result["patterns"],
+        "recommendations": result["recommendations"]
+    }
+
+# Use in monitoring
+health = analyze_agent_health(agent.logs)
+if health["health_score"] < 70:
+    alert_team(health)
+```
+
+### Custom Monitoring Dashboard
+```javascript
+// Real-time health monitoring
+async function updateHealthDashboard() {
+  const logs = await db.logs.findMany({
+    where: { timestamp: { gte: Date.now() - 3600000 } } // last hour
+  });
+  
+  const analysis = await fetch('https://api.claw0x.com/v1/call', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.CLAW0X_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      skill: 'capability-evolver',
+      input: { action: 'analyze', logs }
+    })
+  });
+  
+  const result = await analysis.json();
+  
+  // Update dashboard
+  dashboard.update({
+    healthScore: result.health_score,
+    errorRate: result.summary.error_count / result.summary.total_logs,
+    topPatterns: result.patterns.slice(0, 5)
+  });
+}
+
+setInterval(updateHealthDashboard, 60000); // every minute
+```
+
+### Evolution Strategy Comparison
+```typescript
+// Compare different evolution strategies
+const logs = await getProductionLogs();
+
+const strategies = ['balanced', 'innovate', 'harden', 'repair-only'];
+
+const results = await Promise.all(
+  strategies.map(strategy =>
+    claw0x.call('capability-evolver', {
+      action: 'evolve',
+      logs,
+      strategy
+    })
+  )
+);
+
+// Compare estimated improvements
+for (let i = 0; i < strategies.length; i++) {
+  console.log(`${strategies[i]}: ${results[i].estimated_improvement}`);
+}
+
+// Choose best strategy for current situation
+const best = results.reduce((a, b) => 
+  parseFloat(a.estimated_improvement) > parseFloat(b.estimated_improvement) ? a : b
+);
+```
+
+---
+
+## How It Works — Under the Hood
+
+Capability Evolver is a deterministic analysis engine that processes structured log data and produces actionable diagnostics. No LLM is involved �?the analysis is rule-based, which means results are reproducible and fast.
+
+### Analysis Engine
+
+The core engine processes log entries through several analysis passes:
+
+1. **Pattern detection** �?logs are grouped by `context` (file/module) and `level` (error/warn/info/debug). The engine looks for:
+   - **Repeated errors** �?the same error message appearing multiple times indicates a systemic issue, not a transient failure
+   - **Error cascades** �?errors in module A followed by errors in module B within a short time window suggest a dependency chain failure
+   - **Regression signals** �?errors that appear after a period of clean logs suggest a recent change broke something
+   - **Inefficiency patterns** �?excessive warn-level logs or repeated retries indicate performance issues
+
+2. **Health scoring** �?a system health score (0�?00) is computed based on:
+   - Error rate (errors / total logs)
+   - Error diversity (unique error messages / total errors)
+   - Warn-to-error ratio
+   - Time distribution (clustered errors score worse than spread-out errors)
+
+3. **Recommendation generation** �?based on detected patterns, the engine generates specific, actionable recommendations. These aren't generic advice �?they reference the actual files, error messages, and patterns found in your logs.
+
+### Evolution Strategies
+
+When using the `evolve` action, you can choose a strategy that shapes the recommendations:
+
+| Strategy | Focus | Best For |
+|----------|-------|----------|
+| `auto` | Balanced based on health score | Default �?let the engine decide |
+| `balanced` | Equal weight to reliability and features | Stable systems with moderate issues |
+| `innovate` | Prioritize new capabilities | Healthy systems ready to grow |
+| `harden` | Prioritize reliability and error reduction | Systems with frequent failures |
+| `repair-only` | Fix critical issues only | Systems in crisis |
+
+### Evolution Proposals
+
+The `evolve` action produces structured improvement proposals with:
+- A unique `evolution_id` for tracking
+- Prioritized recommendations with category labels (reliability, performance, architecture)
+- Risk assessment (how risky is each proposed change)
+- Estimated improvement (projected health score after implementing recommendations)
+
+### Why Deterministic (Not LLM)?
+
+- **Reproducible** �?same logs always produce the same analysis. Critical for debugging and auditing.
+- **Fast** �?sub-100ms processing. No API call to an AI provider.
+- **No hallucination risk** �?the engine only reports patterns it actually found in the data.
+- **Cost-effective** �?pure computation, no token costs.
+
+The tradeoff: the engine can't understand semantic meaning in log messages the way an LLM could. It relies on structural patterns (frequency, timing, severity) rather than understanding what the error message means in context.
+
+## Prerequisites
+
+Requires a Claw0x API key. Sign up at [claw0x.com](https://claw0x.com) and create a key in your dashboard. Set it as an environment variable:
+
+```bash
+export CLAW0X_API_KEY="your-api-key-here"
+```
+
+## When to Use
+
+- User says "analyze these logs", "what's failing", "improve my agent", "check system health"
+- Agent pipeline needs automated diagnostics after a run
+- User wants structured recommendations for fixing recurring errors
+- Building a self-healing agent that adapts based on its own failure patterns
+
+## Input
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `input.action` | string | yes | `"analyze"`, `"evolve"`, or `"status"` |
+| `input.logs` | array | yes (for analyze/evolve) | Array of log entries |
+| `input.logs[].timestamp` | string | yes | ISO timestamp |
+| `input.logs[].level` | string | yes | `"error"`, `"warn"`, `"info"`, or `"debug"` |
+| `input.logs[].message` | string | yes | Log message |
+| `input.logs[].context` | string | no | File or module name |
+| `input.strategy` | string | no | `"auto"`, `"balanced"`, `"innovate"`, `"harden"`, `"repair-only"` |
+| `input.target_file` | string | no | Focus analysis on a specific file |
+
+## Output (Analyze)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `patterns` | array | Detected error/regression/inefficiency patterns with severity |
+| `health_score` | number | System health 0�?00 |
+| `recommendations` | string[] | Actionable improvement suggestions |
+| `summary` | object | Counts: total_logs, error_count, warn_count, unique_patterns |
+
+## Output (Evolve)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `evolution_id` | string | Unique proposal ID |
+| `strategy` | string | Effective strategy used |
+| `recommendations` | array | Prioritized improvements with category and approach |
+| `risk_assessment` | object | Risk level and contributing factors |
+| `estimated_improvement` | string | Projected health score improvement |
+
+## Error Codes
+
+- `400` — Invalid action or missing logs array
+- `401` — Invalid or missing API key
+- `500` — Processing failed (not billed)
+
+## Pricing
+
+$0.03 per successful call. Failed calls and 5xx errors are never charged.
+
+---
+
+## Deterministic vs LLM Analysis: Which is Right for You?
+
+| Feature | LLM-Based (GPT-4, Claude) | Claw0x (Deterministic) |
+|---------|---------------------------|------------------------|
+| **Setup Time** | 5-10 min (prompt engineering) | 2 minutes (get API key) |
+| **Processing Speed** | 5-30 seconds | Sub-100ms |
+| **Reproducibility** | ❌ Varies per run | ✅ Same logs = same results |
+| **Hallucination Risk** | ⚠️ Can invent patterns | ✅ Only reports real patterns |
+| **Cost** | $0.10-0.50 per analysis | $0.03 per analysis |
+| **Semantic Understanding** | ✅ Understands context | ❌ Pattern-based only |
+| **Audit Trail** | ❌ Hard to explain | ✅ Rule-based, explainable |
+
+### When to Use LLM-Based
+- Need semantic understanding of log messages
+- Want natural language explanations
+- Logs contain unstructured text
+- Willing to trade speed for insight depth
+
+### When to Use Claw0x (Deterministic)
+- Need reproducible results for compliance
+- Want sub-second processing
+- Building automated pipelines
+- Require explainable AI for audits
+- Processing millions of logs
+- Cost-sensitive applications
+
+---
+
+## How It Fits Into Your Agent Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Agent Development Lifecycle                 │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ├─ Development
+                            │  • Write agent code
+                            │  • Local testing
+                            │
+                            ├─ Staging Deployment
+                            │  POST /v1/call
+                            │  {action: "analyze", logs: staging_logs}
+                            │  → Health check before production
+                            │
+                            ├─ Production Monitoring
+                            │  POST /v1/call (every hour)
+                            │  {action: "analyze", logs: recent_logs}
+                            │  → Real-time health tracking
+                            │
+                            ├─ Incident Response
+                            │  POST /v1/call
+                            │  {action: "analyze", logs: incident_logs}
+                            │  → Root cause analysis
+                            │
+                            └─ Continuous Improvement
+                               POST /v1/call (daily)
+                               {action: "evolve", strategy: "balanced"}
+                               → Auto-generate improvement tasks
+```
+
+### Integration Points
+
+1. **Pre-Deployment** — Health check before releasing
+2. **Real-Time Monitoring** — Continuous health tracking
+3. **Incident Response** — Fast root cause analysis
+4. **Daily Reviews** — Automated improvement proposals
+5. **Fleet Management** — Cross-agent pattern detection
+
+---
+
+## Why Use This Via Claw0x?
+
+### Unified Infrastructure
+- **One API key** for all skills — no per-provider auth
+- **Atomic billing** — pay per successful call, $0 on failure
+- **Security scanned** — OSV.dev integration for all skills
+
+### Agent-Optimized
+- **Deterministic analysis** — reproducible, auditable results
+- **Fast processing** — sub-100ms, suitable for real-time monitoring
+- **Structured output** — JSON format, easy to integrate
+- **Evolution strategies** — tailored recommendations based on context
+
+### Production-Ready
+- **99.9% uptime** — reliable infrastructure
+- **Scales to millions** — handle enterprise-scale log analysis
+- **Cloud-native** — works in Lambda, Cloud Run, containers
+- **Zero maintenance** — no model updates or dependencies
+
+
+
+---
+
+## About Claw0x
+
+Claw0x is the native skills layer for AI agents - not just another API marketplace.
+
+**Why Claw0x?**
+- **One key, all skills** - Single API key for 50+ production-ready skills
+- **Pay only for success** - Failed calls (4xx/5xx) are never charged
+- **Built for OpenClaw** - Native integration with the OpenClaw agent framework
+- **Zero config** - No upstream API keys to manage, we handle all third-party auth
+
+**For Developers:**
+- [Browse all skills](https://claw0x.com/skills)
+- [Sell your own skills](https://claw0x.com/docs/sell)
+- [API Documentation](https://claw0x.com/docs/api-reference)
+- [OpenClaw Integration Guide](https://claw0x.com/docs/openclaw)
+
+## Links
+
+- [Claw0x Platform](https://claw0x.com)
+- [OpenClaw Framework](https://openclaw.org)
+- [Skill Documentation](https://claw0x.com/skills/capability-evolver)
